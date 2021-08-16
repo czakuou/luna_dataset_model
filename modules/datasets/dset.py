@@ -3,6 +3,7 @@ import os
 from glob import glob
 from functools import lru_cache
 
+from collections import defaultdict
 from typing import NamedTuple
 
 
@@ -13,23 +14,23 @@ class CandidateInfoTuple(NamedTuple):
     isnodule_bool: bool
     diameter_mm: float
     series_uid: tuple[float]
-    center_xyz: float
+    center_xyz: tuple[float]
 
 
 @lru_cache(1)
-def get_candidate_info_list(requireOnDisk_bool: bool =True) -> list:
+def get_candidate_info_list(requireOnDisk_bool: bool = True) -> list:
 
     mhd_list = glob(os.path.join(DIRECTORY, 'subset*/*.mhd'))
     present_on_disk_set = {os.path.split(p)[-1][:-4] for p in mhd_list}
 
-    diameter_dict = {}
+    diameter_dict = defaultdict(list)
     with open(os.path.join(DIRECTORY, 'annotations.csv'), 'r') as f:
         for row in list(csv.reader(f))[1:]:
             series_uid = row[0]
             annotation_center_xyz = tuple([float(x) for x in row[1:4]])
             annotation_diameter_mm = float(row[4])
 
-            diameter_dict.setdefault(series_uid, []).append(
+            diameter_dict[series_uid].append(
                 (annotation_center_xyz, annotation_diameter_mm))
 
     candidate_info_list = []
