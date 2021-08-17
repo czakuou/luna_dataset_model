@@ -89,7 +89,7 @@ class Ct:
         self.vxSize_xyz = XyzTuple(*ct_mhd.GetSpacing())
         self.direction_a = np.array(ct_mhd.GetDirection()).reshape(3, 3)
 
-    def get_rat_candidate(self, center_xyz: list[float],
+    def get_raw_candidate(self, center_xyz: list[float],
                           width_irc: list[int]) -> 'ct_chunk, center_irc':
         center_irc = xyz2irc(
             center_xyz,
