@@ -127,15 +127,14 @@ class Ct:
         return ct_chunk, center_irc
 
 
-def get_Ct(series_uid) -> Ct:
+def get_ct(series_uid) -> Ct:
     return Ct(series_uid)
 
 
-@raw_cache.memoize(typed=True)
 def get_raw_candidate(series_uid: float,
                       center_xyz: list[float],
                       width_irc: tuple[int, int, int]) -> 'ct_chunk center_irc':
-    ct = get_Ct(series_uid)
+    ct = get_ct(series_uid)
     ct_chunk, center_irc = ct.get_raw_candidate(center_xyz, width_irc)
     return ct_chunk, center_irc
 
