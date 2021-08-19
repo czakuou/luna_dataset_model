@@ -30,7 +30,7 @@ class CandidateInfoTuple(NamedTuple):
 
 
 @lru_cache(1)
-def get_candidate_info_list(requireOnDisk_bool: bool = True) -> list:
+def get_candidate_info_list(require_on_disk_bool: bool = True) -> list:
 
     mhd_list = glob(os.path.join(DIRECTORY, 'subset*/*.mhd'))
     present_on_disk_set = {os.path.split(p)[-1][:-4] for p in mhd_list}
@@ -50,7 +50,7 @@ def get_candidate_info_list(requireOnDisk_bool: bool = True) -> list:
         for row in list(csv.reader(f))[1:]:
             series_uid = row[0]
 
-            if series_uid not in present_on_disk_set and requireOnDisk_bool:
+            if series_uid not in present_on_disk_set and require_on_disk_bool:
                 continue
 
             is_nodule_bool = bool(int(row[4]))
