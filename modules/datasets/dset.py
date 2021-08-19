@@ -2,12 +2,18 @@ import csv
 import os
 from glob import glob
 from functools import lru_cache
+from copy import copy
 
 from collections import defaultdict
-from typing import NamedTuple
+from typing import NamedTuple, Optional, Sequence
 
 import SimpleITK as sitk
 import numpy as np
+
+
+import torch
+from torch.utils.data import Dataset
+
 
 from ..util.utils import XyzTuple, IrcTuple
 from ..util.utils import xyz2irc, irc2xyz
@@ -19,8 +25,8 @@ DIRECTORY = '/home/czaku/Documents/Pytorch/data/'
 class CandidateInfoTuple(NamedTuple):
     isnodule_bool: bool
     diameter_mm: float
-    series_uid: tuple[float]
-    center_xyz: tuple[float]
+    series_uid: Sequence[float]
+    center_xyz: Sequence[float]
 
 
 @lru_cache(1)
@@ -72,7 +78,7 @@ def get_candidate_info_list(requireOnDisk_bool: bool = True) -> list:
 
 
 class Ct:
-    def __init__(self, series_uid):
+    def __init__(self, series_uid: float) -> None:
         mhd_path = glob(os.path.join(DIRECTORY, f'subset*/{series_uid}.mhd'))[0]
 
         ct_mhd = sitk.ReadImage(mhd_path)
@@ -89,8 +95,8 @@ class Ct:
         self.vxSize_xyz = XyzTuple(*ct_mhd.GetSpacing())
         self.direction_a = np.array(ct_mhd.GetDirection()).reshape(3, 3)
 
-    def get_raw_candidate(self, center_xyz: list[float],
-                          width_irc: list[int]) -> 'ct_chunk, center_irc':
+    def get_raw_candidate(self, center_xyz: Sequence[float],
+                          width_irc: Sequence[int]) -> 'ct_chunk, center_irc':
         center_irc = xyz2irc(
             center_xyz,
             self.origin_xyz,
@@ -120,5 +126,63 @@ class Ct:
 
         return ct_chunk, center_irc
 
-if __name__ == '__main__':
-    print(get_candidate_info_list()[:5])
+
+def get_Ct(series_uid) -> Ct:
+    return Ct(series_uid)
+
+
+@raw_cache.memoize(typed=True)
+def get_raw_candidate(series_uid: float,
+                      center_xyz: list[float],
+                      width_irc: tuple[int, int, int]) -> 'ct_chunk center_irc':
+    ct = get_Ct(series_uid)
+    ct_chunk, center_irc = ct.get_raw_candidate(center_xyz, width_irc)
+    return ct_chunk, center_irc
+
+
+class LoadDataset(Dataset):
+    """Torch Dataset implementation"""
+    def __init__(self,
+                 val_stride: int = 0,
+                 is_val_set_bool: Optional[bool] = None,
+                 series_uid: Optional[float] =None) -> None:
+        self.candidate_info_list = copy(get_candidate_info_list())
+
+        if series_uid:
+            self.candidate_info_list = [x for x in self.candidate_info_list
+                                        if x.series_uid == series_uid]
+
+        if is_val_set_bool:
+            assert val_stride > 0, val_stride
+            self.candidate_info_list = self.candidate_info_list[::val_stride]
+            assert self.candidate_info_list
+        elif val_stride > 0:
+            del self.candidate_info_list[::val_stride]
+            assert self.candidate_info_list
+
+    def __len__(self):
+        return len(self.candidate_info_list)
+
+    def __getitem__(self, index):
+        candidate_info_tup = self.candidate_info_list[index]
+        width_irc = (32, 48, 48)
+
+        candidate_a, center_irc = get_raw_candidate(
+            candidate_info_tup.series_uid,
+            candidate_info_tup.center_xyz,
+            width_irc)
+
+        candidate_t = torch.from_numpy(candidate_a)
+        candidate_t = candidate_t.to(torch.float32)
+        candidate_t = candidate_t.unsqueeze(0)
+
+        pos_t = torch.tensor([
+                not candidate_info_tup.isNodule_bool,
+                candidate_info_tup.isNodule_bool],
+            dtype=torch.int64)
+
+        return (
+            candidate_t,
+            pos_t,
+            candidate_info_tup.series_uid,
+            torch.tensor(center_irc))

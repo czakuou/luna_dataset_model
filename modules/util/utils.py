@@ -1,4 +1,5 @@
 from typing import NamedTuple
+from typing import Sequence
 
 import numpy as np
 
@@ -15,8 +16,8 @@ class IrcTuple(NamedTuple):
     col: int
 
 
-def irc2xyz(coord_irc: list[int], origin_xyz: XyzTuple,
-            vxSize_xyz: XyzTuple, direction_a: np.array[int]) -> XyzTuple:
+def irc2xyz(coord_irc: Sequence[int], origin_xyz: XyzTuple,
+            vxSize_xyz: XyzTuple, direction_a: Sequence[int]) -> XyzTuple:
     """
     Flip the coordinates of CT scans to align with XYZ
     Scale the indices with voxel sizes
@@ -32,8 +33,9 @@ def irc2xyz(coord_irc: list[int], origin_xyz: XyzTuple,
     coords_xyz = (direction_a @ (cri_a * vxSize_a)) + origin_a
     return XyzTuple(*coords_xyz)
 
-def xyz2irc(coord_xyz: list[float], origin_xyz: list[float],
-            vxSize_xyz: list[float], direction_a: list[float]) -> IrcTuple:
+
+def xyz2irc(coord_xyz: Sequence[float], origin_xyz: XyzTuple,
+            vxSize_xyz: XyzTuple, direction_a: Sequence[float]) -> IrcTuple:
     """
     Convert XYZ coordinates to IRC
     :param coord_xyz:
@@ -48,4 +50,3 @@ def xyz2irc(coord_xyz: list[float], origin_xyz: list[float],
     cri_a = ((coord_a - origin_a) @ np.linalg.inv(direction_a)) / vxSize_a
     cri_a = np.round(cri_a)
     return IrcTuple(int(cri_a[2], int(cri_a[1]), int(cri_a[0])))
-
